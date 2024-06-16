@@ -1,0 +1,83 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-network-policies
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - namespaces
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+     - "networking.k8s.io"
+    resources:
+      - networkpolicies
+    verbs:
+      - list
+      - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: network-policy-terminator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: network-policy-terminator
+subjects:
+  - kind: ServiceAccount
+    name: network-policy-terminator
+    namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: network-policy-terminator
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-policy-terminator
+  namespace: kube-system
+  labels:
+    app: network-policy-terminator
+    k8s-app: network-policy-terminator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: network-policy-terminator
+  template:
+    metadata:
+      labels:
+        app: network-policy-terminator
+        k8s-app: network-policy-terminator
+    spec:
+      hostNetwork: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      serviceAccountName: network-policy-terminator
+      containers:
+        - name: network-policy-terminator
+          image: aojea/network-policy-terminator:v1.1.0
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "50Mi"
+            limits:
+              cpu: "100m"
+              memory: "50Mi"
+---
