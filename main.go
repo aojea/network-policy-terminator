@@ -69,7 +69,7 @@ func NewController(
 		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "network-policy-terminator"),
 	}
 
-	networkpolicyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	networkpolicyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{ // nolint:errcheck
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {
@@ -186,7 +186,7 @@ func (c *Controller) addFinalizer(networkPolicy *networkingv1.NetworkPolicy) err
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	klog.V(2).Infof("Added protection finalizer from NetworkPolicy", "NetworkPolicy", networkPolicy)
+	klog.V(2).InfoS("Added protection finalizer from NetworkPolicy", "NetworkPolicy", networkPolicy)
 	return nil
 }
 
@@ -211,7 +211,7 @@ func (c *Controller) deleteFinalizer(networkPolicy *networkingv1.NetworkPolicy) 
 		return err
 	}
 
-	klog.V(2).Infof("Removed protection finalizer from NetworkPolicy", "NetworkPolicy", networkPolicy)
+	klog.V(2).InfoS("Removed protection finalizer from NetworkPolicy", "NetworkPolicy", networkPolicy)
 	return nil
 }
 
