@@ -2,7 +2,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kube-network-policies
+  name: network-policy-terminator
 rules:
   - apiGroups:
       - ""
