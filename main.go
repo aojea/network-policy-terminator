@@ -51,7 +51,7 @@ import (
 )
 
 const (
-	finalizer          = "network.policy.terminator.k8s.io"
+	finalizer          = "policies.networking.k8s.io/terminator"
 	leaseLockName      = "network-policy-terminator"
 	leaseLockNamespace = "kube-system"
 )
