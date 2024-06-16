@@ -86,6 +86,10 @@ spec:
       containers:
         - name: network-policy-terminator
           image: aojea/network-policy-terminator:v1.1.0
+          args:
+          - /bin/netpol-terminator
+          - -v
+          - "2"
           resources:
             requests:
               cpu: "100m"

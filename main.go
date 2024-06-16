@@ -108,6 +108,12 @@ func (c *Controller) processNextItem() bool {
 }
 
 func (c *Controller) sync(key string) error {
+	start := time.Now()
+	klog.V(2).Infof("sync network policy %s", key)
+	defer func() {
+		klog.V(2).Infof("sync network policy %s took %v", key, time.Since(start))
+	}()
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
@@ -122,12 +128,14 @@ func (c *Controller) sync(key string) error {
 
 	// if is being deleted wait for the Pods to be deleted before removing the finalizer
 	if !networkPolicy.DeletionTimestamp.IsZero() {
+		klog.V(2).Infof("network policy %s/%s is being deleted", namespace, name)
 		ns, err := c.client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		// namespace is being deleted but the namespace is not
 		if ns.DeletionTimestamp.IsZero() {
+			klog.V(2).Infof("namespace %s is not being deleted, removing network policy", namespace)
 			return c.deleteFinalizer(networkPolicy)
 		}
 
@@ -150,11 +158,13 @@ func (c *Controller) sync(key string) error {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
+		klog.V(2).Infof("waiting for pods on namespace %s to disappear", namespace)
 		go podController.Run(ctx.Done())
 
 		err = wait.PollUntilContextCancel(context.Background(), 1*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			list := podStore.List()
 			if len(list) > 0 {
+				klog.V(2).Infof("waiting for %d pods on namespace %s to disappear", len(list), namespace)
 				return false, nil
 			}
 			return true, nil
@@ -162,9 +172,7 @@ func (c *Controller) sync(key string) error {
 		if err != nil {
 			return err
 		}
-
 		return c.deleteFinalizer(networkPolicy)
-
 	}
 	return c.addFinalizer(networkPolicy)
 }
