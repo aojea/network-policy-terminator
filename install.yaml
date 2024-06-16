@@ -19,6 +19,7 @@ rules:
     verbs:
       - list
       - watch
+      - patch
   - apiGroups:
     - coordination.k8s.io
     resources:
