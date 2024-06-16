@@ -160,7 +160,9 @@ func (c *Controller) sync(key string) error {
 
 		klog.V(2).Infof("waiting for pods on namespace %s to disappear", namespace)
 		go podController.Run(ctx.Done())
-
+		if !cache.WaitForCacheSync(ctx.Done(), podController.HasSynced) {
+			return fmt.Errorf("timed out waiting for caches to sync")
+		}
 		err = wait.PollUntilContextCancel(context.Background(), 1*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			list := podStore.List()
 			if len(list) > 0 {
