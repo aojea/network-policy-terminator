@@ -26,6 +26,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 
 	v1 "k8s.io/api/core/v1"
@@ -43,11 +44,17 @@ import (
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 )
 
-const finalizer = "network.policy.terminator.k8s.io"
+const (
+	finalizer          = "network.policy.terminator.k8s.io"
+	leaseLockName      = "network-policy-terminator"
+	leaseLockNamespace = "kube-system"
+)
 
 // Controller demonstrates how to implement a controller with client-go.
 type Controller struct {
@@ -277,6 +284,18 @@ func main() {
 		klog.Fatal(err)
 	}
 
+	id := uuid.New().String()
+	run := func(ctx context.Context) {
+		// complete your controller loop here
+		klog.Info("Controller loop...")
+
+		informersFactory := informers.NewSharedInformerFactory(clientset, 0)
+		controller := NewController(clientset, informersFactory.Networking().V1().NetworkPolicies())
+
+		informersFactory.Start(ctx.Done())
+		controller.Run(5, ctx.Done())
+	}
+
 	// trap Ctrl+C and call cancel on the context
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -289,16 +308,50 @@ func main() {
 	}()
 	signal.Notify(signalCh, os.Interrupt, unix.SIGINT)
 
-	informersFactory := informers.NewSharedInformerFactory(clientset, 0)
-	controller := NewController(clientset, informersFactory.Networking().V1().NetworkPolicies())
+	go func() {
+		select {
+		case <-signalCh:
+			klog.Infof("Exiting: received signal")
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
 
-	informersFactory.Start(ctx.Done())
-	go controller.Run(5, ctx.Done())
-
-	select {
-	case <-signalCh:
-		klog.Infof("Exiting: received signal")
-		cancel()
-	case <-ctx.Done():
+	// we use the Lease lock type since edits to Leases are less common
+	// and fewer objects in the cluster watch "all Leases".
+	lock := &resourcelock.LeaseLock{
+		LeaseMeta: metav1.ObjectMeta{
+			Name:      leaseLockName,
+			Namespace: leaseLockNamespace,
+		},
+		Client: clientset.CoordinationV1(),
+		LockConfig: resourcelock.ResourceLockConfig{
+			Identity: id,
+		},
 	}
+
+	// start the leader election code loop
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+		Lock:            lock,
+		ReleaseOnCancel: true,
+		LeaseDuration:   60 * time.Second,
+		RenewDeadline:   15 * time.Second,
+		RetryPeriod:     5 * time.Second,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				run(ctx)
+			},
+			OnStoppedLeading: func() {
+				// we can do cleanup here
+				klog.Infof("leader lost: %s", id)
+				os.Exit(0)
+			},
+			OnNewLeader: func(identity string) {
+				if identity == id {
+					return
+				}
+				klog.Infof("new leader elected: %s", identity)
+			},
+		},
+	})
 }

@@ -58,7 +58,6 @@ spec:
         app: network-policy-terminator
         k8s-app: network-policy-terminator
     spec:
-      hostNetwork: true
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
