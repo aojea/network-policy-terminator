@@ -119,8 +119,9 @@ func (c *Controller) sync(key string) error {
 		if err != nil {
 			return err
 		}
+		// namespace is being deleted but the namespace is not
 		if ns.DeletionTimestamp.IsZero() {
-			return nil
+			return c.deleteFinalizer(networkPolicy)
 		}
 
 		// namespace is being deleted, wait for the Pods to be deleted
