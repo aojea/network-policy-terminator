@@ -135,15 +135,11 @@ func (c *Controller) sync(key string) error {
 		podStore, podController := cache.NewInformer(
 			&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-					podList, err := c.client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-						LabelSelector: networkPolicy.Spec.PodSelector.String(),
-					})
+					podList, err := c.client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 					return podList, err
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-					return c.client.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
-						LabelSelector: networkPolicy.Spec.PodSelector.String(),
-					})
+					return c.client.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{})
 				},
 			},
 			&v1.Pod{},
