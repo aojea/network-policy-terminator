@@ -2,10 +2,6 @@ FROM --platform=$BUILDPLATFORM golang:1.22 AS builder
 
 WORKDIR /src
 
-COPY go.mod go.sum main.go .
-RUN --mount=type=cache,target=/go/pkg \
-    go mod download
-
 COPY . .
 
 ARG TARGETOS TARGETARCH
@@ -16,6 +12,6 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 # STEP 2: Build small image
 FROM gcr.io/distroless/static-debian12
-COPY --from=builder --chown=root:root /go/bin/netpol-terminator /bin/netpol
+COPY --from=builder --chown=root:root /go/bin/netpol-terminator /bin/netpol-terminator
 
 CMD ["/bin/netpol-terminator"]
